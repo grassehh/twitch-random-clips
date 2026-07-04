@@ -6,17 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Random Twitch Clips</title>
     <style>
-        :root {
-            --bg: #07050d;
-            --panel: rgba(18, 12, 34, 0.72);
-            --panel-border: rgba(255, 255, 255, 0.12);
-            --text: #f5efff;
-            --muted: rgba(245, 239, 255, 0.72);
-            --accent: #a970ff;
-            --accent-2: #ff4fd8;
-        }
-
-        html, body { margin: 0; width: 100%; height: 100%; background: var(--bg); overflow: hidden; font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+        html, body { margin: 0; width: 100%; height: 100%; background: #07050d; overflow: hidden; font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
         body { display: flex; flex-direction: column; }
 
         header {
@@ -25,38 +15,23 @@
             align-items: center;
             justify-content: center;
             padding: 8px 16px;
-            background:
-                linear-gradient(135deg, rgba(169, 112, 255, 0.22), rgba(255, 79, 216, 0.16)),
-                var(--panel);
-            border-bottom: 1px solid var(--panel-border);
-            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
-            position: relative;
-            z-index: 1;
-        }
-
-        header::before {
-            content: "";
-            position: absolute;
-            inset: 0;
-            background:
-                radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.18), transparent 30%),
-                radial-gradient(circle at 80% 50%, rgba(255, 79, 216, 0.18), transparent 24%);
-            pointer-events: none;
+            background: linear-gradient(135deg, rgba(169, 112, 255, 0.22), rgba(255, 79, 216, 0.16)), rgba(18, 12, 34, 0.72);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.12);
         }
 
         .brand {
-            position: relative;
             display: inline-flex;
             align-items: center;
-            gap: 14px;
+            gap: 12px;
             padding: 8px 14px;
             border: 1px solid rgba(255, 255, 255, 0.12);
             border-radius: 999px;
             background: rgba(7, 5, 13, 0.5);
-            color: var(--text);
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+            color: #f5efff;
+            font-size: 1.02rem;
+            font-weight: 800;
+            letter-spacing: 0.02em;
+            line-height: 1;
         }
 
         .badge {
@@ -65,42 +40,21 @@
             border-radius: 50%;
             display: grid;
             place-items: center;
-            background: linear-gradient(135deg, var(--accent), var(--accent-2));
-            color: #fff;
-            font-weight: 700;
-            font-size: 0.92rem;
-            box-shadow: 0 0 0 4px rgba(169, 112, 255, 0.12);
-            flex: 0 0 auto;
+            background: linear-gradient(135deg, #a970ff, #ff4fd8);
         }
 
-        .title {
-            display: flex;
-            align-items: center;
-            line-height: 1;
-            font-size: 1.02rem;
-            font-weight: 800;
-            letter-spacing: 0.02em;
-        }
-
-        iframe {
-            width: 100%;
-            flex: 1;
-            min-height: 300px;
-            border: 0;
-            display: block;
-            background: #000;
-        }
+        iframe { width: 100%; flex: 1; min-height: 300px; border: 0; display: block; background: #000; }
     </style>
 </head>
 <body>
 <header>
     <div class="brand" aria-label="Clip aléatoire">
         <div class="badge">🎲</div>
-        <span class="title">Clip aléatoire</span>
+        <span>Clip aléatoire</span>
     </div>
 </header>
 
-<iframe id="clip" allow="autoplay; fullscreen; encrypted-media; picture-in-picture" allowfullscreen></iframe>
+<iframe id="clip" allowfullscreen></iframe>
 
 <script>
     const clipFrame = document.getElementById("clip");
@@ -109,7 +63,7 @@
     let timer = null;
 
     function parentDomain() {
-        return window.location.hostname || "localhost";
+        return window.location.hostname;
     }
 
     function pickRandomClip() {
