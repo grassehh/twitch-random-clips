@@ -75,7 +75,7 @@ jobs:
 
           base = "https://api.twitch.tv/helix/clips"
           WINDOW_DAYS = 30
-          OUTPUT_CLIPS_LIMIT = 50
+          OUTPUT_CLIPS_LIMIT = 100
           def iso_utc(dt):
             return dt.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
 
