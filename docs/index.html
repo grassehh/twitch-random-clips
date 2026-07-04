@@ -43,8 +43,7 @@
     }
 
     function playClip(clip) {
-        const src = `https://clips.twitch.tv/embed?clip=${encodeURIComponent(clip.id)}&parent=${encodeURIComponent(parentDomain())}&autoplay=true&muted=true`;
-        clipFrame.src = src;
+        clipFrame.src = `https://clips.twitch.tv/embed?clip=${encodeURIComponent(clip.id)}&parent=${encodeURIComponent(parentDomain())}&autoplay=true&muted=true`;
         lastClipId = clip.id;
         scheduleNext(clip.duration);
     }
