@@ -76,7 +76,17 @@
         .kicker { font-size: 0.72rem; letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted); }
         .title { font-size: 1.15rem; font-weight: 800; letter-spacing: 0.02em; }
 
-        iframe { width: 100vw; flex: 1; border: 0; display: block; background: #000; }
+        iframe {
+            position: fixed;
+            top: 84px;
+            left: 0;
+            width: 100vw;
+            height: calc(100vh - 84px);
+            min-height: 300px;
+            border: 0;
+            display: block;
+            background: #000;
+        }
     </style>
 </head>
 <body>
@@ -90,7 +100,7 @@
     </div>
 </header>
 
-<iframe id="clip" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen></iframe>
+<iframe id="clip" allow="autoplay; fullscreen; encrypted-media; picture-in-picture" allowfullscreen></iframe>
 
 <script>
     const clipFrame = document.getElementById("clip");
@@ -100,6 +110,19 @@
 
     function parentDomain() {
         return window.location.hostname;
+    }
+
+    function clipParents() {
+        const parents = new Set();
+        const host = parentDomain();
+
+        if (host) parents.add(host);
+        if (host === "localhost" || host === "127.0.0.1") {
+            parents.add("localhost");
+            parents.add("127.0.0.1");
+        }
+
+        return [...parents].map((parent) => `parent=${encodeURIComponent(parent)}`).join("&");
     }
 
     function pickRandomClip() {
@@ -122,7 +145,7 @@
     }
 
     function playClip(clip) {
-        clipFrame.src = `https://clips.twitch.tv/embed?clip=${encodeURIComponent(clip.id)}&parent=${encodeURIComponent(parentDomain())}&autoplay=true&muted=true`;
+        clipFrame.src = `https://clips.twitch.tv/embed?clip=${encodeURIComponent(clip.id)}&${clipParents()}&autoplay=true&muted=true`;
         lastClipId = clip.id;
         scheduleNext(clip.duration);
     }
