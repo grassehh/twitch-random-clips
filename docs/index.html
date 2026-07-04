@@ -1,0 +1,70 @@
+<!-- docs/index.html -->
+<!doctype html>
+<html lang="fr">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Random Twitch Clips</title>
+    <style>
+        html, body { margin: 0; width: 100%; height: 100%; background: #000; overflow: hidden; }
+        iframe { width: 100vw; height: 100vh; border: 0; display: block; background: #000; }
+    </style>
+</head>
+<body>
+<iframe id="clip" allowfullscreen></iframe>
+
+<script>
+    const clipFrame = document.getElementById("clip");
+    let clips = [];
+    let lastClipId = null;
+    let timer = null;
+
+    function parentDomain() {
+        return window.location.hostname;
+    }
+
+    function pickRandomClip() {
+        if (clips.length === 0) return null;
+        if (clips.length === 1) return clips[0];
+
+        let clip = clips[Math.floor(Math.random() * clips.length)];
+        let guard = 0;
+        while (clip.id === lastClipId && guard < 10) {
+            clip = clips[Math.floor(Math.random() * clips.length)];
+            guard += 1;
+        }
+        return clip;
+    }
+
+    function scheduleNext(seconds) {
+        if (timer) clearTimeout(timer);
+        const delayMs = Math.max(3, Math.ceil(Number(seconds) || 20)) * 1000 + 700;
+        timer = setTimeout(playRandomClip, delayMs);
+    }
+
+    function playClip(clip) {
+        const src = `https://clips.twitch.tv/embed?clip=${encodeURIComponent(clip.id)}&parent=${encodeURIComponent(parentDomain())}&autoplay=true&muted=true`;
+        clipFrame.src = src;
+        lastClipId = clip.id;
+        scheduleNext(clip.duration);
+    }
+
+    function playRandomClip() {
+        const clip = pickRandomClip();
+        if (!clip) return;
+        playClip(clip);
+    }
+
+    async function init() {
+        const res = await fetch(`./clips.json?t=${Date.now()}`, { cache: "no-store" });
+        if (!res.ok) return;
+        const data = await res.json();
+        clips = Array.isArray(data.clips) ? data.clips : [];
+        if (clips.length === 0) return;
+        playRandomClip();
+    }
+
+    init();
+</script>
+</body>
+</html>

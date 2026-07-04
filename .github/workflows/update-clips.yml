@@ -1,0 +1,117 @@
+# .github/workflows/update-clips.yml
+name: Update Twitch clips JSON
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "*/30 * * * *"
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    env:
+      TWITCH_CLIENT_ID: ${{ secrets.TWITCH_CLIENT_ID }}
+      TWITCH_CLIENT_SECRET: ${{ secrets.TWITCH_CLIENT_SECRET }}
+      TWITCH_CHANNEL_LOGIN: ${{ secrets.TWITCH_CHANNEL_LOGIN }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Generate docs/clips.json
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import urllib.parse
+          import urllib.request
+          from datetime import datetime, timedelta, timezone
+
+          client_id = os.environ["TWITCH_CLIENT_ID"]
+          client_secret = os.environ["TWITCH_CLIENT_SECRET"]
+          channel_login = os.environ["TWITCH_CHANNEL_LOGIN"]
+
+          def req_json(url, headers=None, data=None):
+            req = urllib.request.Request(url, headers=headers or {}, data=data)
+            with urllib.request.urlopen(req, timeout=30) as r:
+              return json.loads(r.read().decode("utf-8"))
+
+          token_payload = urllib.parse.urlencode({
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "grant_type": "client_credentials",
+          }).encode("utf-8")
+
+          token_data = req_json("https://id.twitch.tv/oauth2/token", data=token_payload)
+          access_token = token_data["access_token"]
+
+          headers = {
+            "Client-Id": client_id,
+            "Authorization": f"Bearer {access_token}",
+          }
+
+          users_url = "https://api.twitch.tv/helix/users?login=" + urllib.parse.quote(channel_login)
+          users_data = req_json(users_url, headers=headers)
+          if not users_data.get("data"):
+            raise RuntimeError("Channel not found")
+          broadcaster_id = users_data["data"][0]["id"]
+
+          ended_at = datetime.now(timezone.utc)
+          started_at = ended_at - timedelta(days=30)
+
+          base = "https://api.twitch.tv/helix/clips"
+          params = {
+            "broadcaster_id": broadcaster_id,
+            "first": "100",
+            "started_at": started_at.isoformat().replace("+00:00", "Z"),
+            "ended_at": ended_at.isoformat().replace("+00:00", "Z"),
+          }
+
+          clips = []
+          cursor = None
+          for _ in range(10):  # max ~1000 clips
+            p = dict(params)
+            if cursor:
+              p["after"] = cursor
+            url = base + "?" + urllib.parse.urlencode(p)
+            data = req_json(url, headers=headers)
+
+            for c in data.get("data", []):
+              clips.append({
+                "id": c.get("id"),
+                "duration": c.get("duration", 20),
+                "title": c.get("title", ""),
+                "url": c.get("url", "")
+              })
+
+            cursor = data.get("pagination", {}).get("cursor")
+            if not cursor:
+              break
+
+          out = {
+            "generated_at": ended_at.isoformat().replace("+00:00", "Z"),
+            "channel_login": channel_login,
+            "count": len(clips),
+            "clips": clips,
+          }
+
+          os.makedirs("docs", exist_ok=True)
+          with open("docs/clips.json", "w", encoding="utf-8") as f:
+            json.dump(out, f, ensure_ascii=False, separators=(",", ":"))
+          PY
+
+      - name: Commit and push if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/clips.json
+          git diff --cached --quiet || git commit -m "chore: update clips.json"
+          git push
