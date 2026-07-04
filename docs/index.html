@@ -11,7 +11,7 @@
     </style>
 </head>
 <body>
-<iframe id="clip" allow="autoplay; fullscreen" allowfullscreen></iframe>
+<iframe id="clip" allowfullscreen></iframe>
 
 <script>
     const clipFrame = document.getElementById("clip");
@@ -43,7 +43,8 @@
     }
 
     function playClip(clip) {
-        clipFrame.src = `https://clips.twitch.tv/embed?clip=${encodeURIComponent(clip.id)}&parent=${encodeURIComponent(parentDomain())}&autoplay=true&muted=false`;
+        const src = `https://clips.twitch.tv/embed?clip=${encodeURIComponent(clip.id)}&parent=${encodeURIComponent(parentDomain())}&autoplay=true&muted=true`;
+        clipFrame.src = src;
         lastClipId = clip.id;
         scheduleNext(clip.duration);
     }
