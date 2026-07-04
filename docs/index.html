@@ -6,11 +6,90 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Random Twitch Clips</title>
     <style>
-        html, body { margin: 0; width: 100%; height: 100%; background: #000; overflow: hidden; }
-        iframe { width: 100vw; height: 100vh; border: 0; display: block; background: #000; }
+        :root {
+            --bg: #07050d;
+            --panel: rgba(18, 12, 34, 0.72);
+            --panel-border: rgba(255, 255, 255, 0.12);
+            --text: #f5efff;
+            --muted: rgba(245, 239, 255, 0.72);
+            --accent: #a970ff;
+            --accent-2: #ff4fd8;
+        }
+
+        html, body { margin: 0; width: 100%; height: 100%; background: var(--bg); overflow: hidden; font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+        body { display: flex; flex-direction: column; }
+
+        header {
+            height: 84px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 12px 20px;
+            background:
+                linear-gradient(135deg, rgba(169, 112, 255, 0.22), rgba(255, 79, 216, 0.16)),
+                var(--panel);
+            border-bottom: 1px solid var(--panel-border);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            position: relative;
+            z-index: 1;
+        }
+
+        header::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background:
+                radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.18), transparent 30%),
+                radial-gradient(circle at 80% 50%, rgba(255, 79, 216, 0.18), transparent 24%);
+            pointer-events: none;
+        }
+
+        .brand {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            gap: 14px;
+            padding: 14px 18px;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 999px;
+            background: rgba(7, 5, 13, 0.5);
+            color: var(--text);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+        }
+
+        .badge {
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            display: grid;
+            place-items: center;
+            background: linear-gradient(135deg, var(--accent), var(--accent-2));
+            color: #fff;
+            font-weight: 800;
+            box-shadow: 0 0 0 6px rgba(169, 112, 255, 0.12);
+            flex: 0 0 auto;
+        }
+
+        .title-wrap { display: flex; flex-direction: column; line-height: 1.05; }
+        .kicker { font-size: 0.72rem; letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted); }
+        .title { font-size: 1.15rem; font-weight: 800; letter-spacing: 0.02em; }
+
+        iframe { width: 100vw; flex: 1; border: 0; display: block; background: #000; }
     </style>
 </head>
 <body>
+<header>
+    <div class="brand" aria-label="Clip aléatoire">
+        <div class="badge">🎲</div>
+        <div class="title-wrap">
+            <span class="kicker">Twitch clips</span>
+            <span class="title">Clip aléatoire</span>
+        </div>
+    </div>
+</header>
+
 <iframe id="clip" allowfullscreen></iframe>
 
 <script>
