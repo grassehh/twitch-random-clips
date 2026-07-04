@@ -63,7 +63,7 @@
     let timer = null;
 
     function parentDomain() {
-        return window.location.hostname;
+        return window.location.hostname || "localhost";
     }
 
     function pickRandomClip() {
