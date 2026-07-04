@@ -11,6 +11,7 @@
 
         header {
             height: 64px;
+            position: relative;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -43,7 +44,21 @@
             background: linear-gradient(135deg, #a970ff, #ff4fd8);
         }
 
-        iframe { width: 100%; flex: 1; min-height: 300px; border: 0; display: block; background: #000; }
+        .audio-toggle {
+            position: absolute;
+            right: 16px;
+            padding: 8px 12px;
+            border-radius: 999px;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            background: rgba(7, 5, 13, 0.55);
+            color: #f5efff;
+            font-size: 0.9rem;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        video, iframe { width: 100%; flex: 1; min-height: 300px; border: 0; display: block; background: #000; }
+        [hidden] { display: none !important; }
     </style>
 </head>
 <body>
@@ -52,15 +67,45 @@
         <div class="badge">🎲</div>
         <span>Clip aléatoire</span>
     </div>
+    <button id="audioToggle" class="audio-toggle" type="button" aria-pressed="false">🔇 Muet</button>
 </header>
 
-<iframe id="clip" allowfullscreen></iframe>
+<video id="clipVideo" autoplay playsinline></video>
+<iframe id="clipEmbed" allow="autoplay; fullscreen" allowfullscreen hidden></iframe>
 
 <script>
-    const clipFrame = document.getElementById("clip");
+    const clipVideo = document.getElementById("clipVideo");
+    const clipEmbed = document.getElementById("clipEmbed");
+    const audioToggle = document.getElementById("audioToggle");
+    const MUTED_STORAGE_KEY = "twitch-random-clips-muted";
     let clips = [];
     let lastClipId = null;
     let timer = null;
+    let muted = true;
+
+    function initialMutedValue() {
+        const params = new URLSearchParams(window.location.search);
+        if (params.has("muted")) {
+            const raw = String(params.get("muted") || "").toLowerCase();
+            return !["0", "false", "off", "no"].includes(raw);
+        }
+
+        const saved = window.localStorage.getItem(MUTED_STORAGE_KEY);
+        if (saved === null) return true;
+        return saved === "true";
+    }
+
+    function updateAudioToggle() {
+        audioToggle.textContent = muted ? "🔇 Muet" : "🔊 Son";
+        audioToggle.setAttribute("aria-pressed", String(!muted));
+    }
+
+    function setMuted(nextMuted) {
+        muted = nextMuted;
+        clipVideo.muted = muted;
+        window.localStorage.setItem(MUTED_STORAGE_KEY, String(muted));
+        updateAudioToggle();
+    }
 
     function parentDomain() {
         return window.location.hostname || "localhost";
@@ -85,8 +130,27 @@
         timer = setTimeout(playRandomClip, delayMs);
     }
 
+    function clipVideoUrl(clip) {
+        if (clip.video_url) return clip.video_url;
+        if (clip.thumbnail_url && clip.thumbnail_url.includes("-preview-")) {
+            return `${clip.thumbnail_url.split("-preview-")[0]}.mp4`;
+        }
+        return null;
+    }
+
     function playClip(clip) {
-        clipFrame.src = `https://clips.twitch.tv/embed?clip=${encodeURIComponent(clip.id)}&parent=${encodeURIComponent(parentDomain())}&autoplay=true&muted=true`;
+        const videoUrl = clipVideoUrl(clip);
+        if (videoUrl) {
+            clipEmbed.hidden = true;
+            clipVideo.hidden = false;
+            clipVideo.src = videoUrl;
+            clipVideo.muted = muted;
+            clipVideo.play().catch((err) => console.warn("Lecture vidéo auto refusée:", err));
+        } else {
+            clipVideo.hidden = true;
+            clipEmbed.hidden = false;
+            clipEmbed.src = `https://clips.twitch.tv/embed?clip=${encodeURIComponent(clip.id)}&parent=${encodeURIComponent(parentDomain())}&autoplay=true&muted=${muted ? "true" : "false"}`;
+        }
         lastClipId = clip.id;
         scheduleNext(clip.duration);
     }
@@ -98,6 +162,11 @@
     }
 
     async function init() {
+        muted = initialMutedValue();
+        updateAudioToggle();
+        audioToggle.addEventListener("click", () => setMuted(!muted));
+        clipVideo.muted = muted;
+
         const res = await fetch(`./clips.json?t=${Date.now()}`, { cache: "no-store" });
         if (!res.ok) return;
         const data = await res.json();

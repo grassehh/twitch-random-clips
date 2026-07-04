@@ -33,7 +33,7 @@ jobs:
           import os
           import urllib.parse
           import urllib.request
-          from datetime import datetime, timedelta, timezone
+          from datetime import datetime, timezone
 
           client_id = os.environ["TWITCH_CLIENT_ID"]
           client_secret = os.environ["TWITCH_CLIENT_SECRET"]
@@ -65,19 +65,21 @@ jobs:
           broadcaster_id = users_data["data"][0]["id"]
 
           ended_at = datetime.now(timezone.utc)
-          started_at = ended_at - timedelta(days=30)
-
           base = "https://api.twitch.tv/helix/clips"
           params = {
             "broadcaster_id": broadcaster_id,
             "first": "100",
-            "started_at": started_at.isoformat().replace("+00:00", "Z"),
-            "ended_at": ended_at.isoformat().replace("+00:00", "Z"),
           }
 
           clips = []
           cursor = None
-          for _ in range(10):  # max ~1000 clips
+          seen_cursors = set()
+          while True:
+            if cursor and cursor in seen_cursors:
+              break
+            if cursor:
+              seen_cursors.add(cursor)
+
             p = dict(params)
             if cursor:
               p["after"] = cursor
@@ -85,11 +87,17 @@ jobs:
             data = req_json(url, headers=headers)
 
             for c in data.get("data", []):
+              thumbnail_url = c.get("thumbnail_url", "")
+              video_url = ""
+              if "-preview-" in thumbnail_url:
+                video_url = thumbnail_url.split("-preview-", 1)[0] + ".mp4"
               clips.append({
                 "id": c.get("id"),
                 "duration": c.get("duration", 20),
                 "title": c.get("title", ""),
-                "url": c.get("url", "")
+                "url": c.get("url", ""),
+                "thumbnail_url": thumbnail_url,
+                "video_url": video_url
               })
 
             cursor = data.get("pagination", {}).get("cursor")
