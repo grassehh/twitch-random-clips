@@ -83,11 +83,8 @@
         }
 
         iframe {
-            position: fixed;
-            top: 64px;
-            left: 0;
-            width: 100vw;
-            height: calc(100vh - 64px);
+            width: 100%;
+            flex: 1;
             min-height: 300px;
             border: 0;
             display: block;
@@ -107,38 +104,12 @@
 
 <script>
     const clipFrame = document.getElementById("clip");
-    const query = new URLSearchParams(window.location.search);
     let clips = [];
-    let currentClip = null;
     let lastClipId = null;
     let timer = null;
 
     function parentDomain() {
-        return window.location.hostname;
-    }
-
-    function clipParents() {
-        const parents = new Set();
-        const host = parentDomain();
-        const explicitParent = query.getAll("parent");
-        const explicitParentsList = (query.get("parents") || "")
-            .split(",")
-            .map((value) => value.trim())
-            .filter(Boolean);
-
-        for (const parent of explicitParent) parents.add(parent);
-        for (const parent of explicitParentsList) parents.add(parent);
-        if (host) parents.add(host);
-        if (host === "localhost" || host === "127.0.0.1") {
-            parents.add("localhost");
-            parents.add("127.0.0.1");
-        }
-        if (parents.size === 0) {
-            parents.add("localhost");
-            parents.add("127.0.0.1");
-        }
-
-        return [...parents];
+        return window.location.hostname || "localhost";
     }
 
     function pickRandomClip() {
@@ -161,16 +132,7 @@
     }
 
     function playClip(clip) {
-        const params = new URLSearchParams({
-            clip: clip.id,
-            autoplay: "true",
-            muted: "true",
-        });
-        for (const parent of clipParents()) {
-            params.append("parent", parent);
-        }
-        clipFrame.src = `https://clips.twitch.tv/embed?${params.toString()}`;
-        currentClip = clip;
+        clipFrame.src = `https://clips.twitch.tv/embed?clip=${encodeURIComponent(clip.id)}&parent=${encodeURIComponent(parentDomain())}&autoplay=true&muted=true`;
         lastClipId = clip.id;
         scheduleNext(clip.duration);
     }
@@ -189,11 +151,6 @@
         if (clips.length === 0) return;
         playRandomClip();
     }
-
-    document.addEventListener("visibilitychange", () => {
-        if (document.visibilityState !== "visible" || !currentClip) return;
-        playClip(currentClip);
-    });
 
     init();
 </script>
