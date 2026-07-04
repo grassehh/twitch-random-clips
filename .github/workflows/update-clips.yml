@@ -31,6 +31,7 @@ jobs:
           python - <<'PY'
           import json
           import os
+          import random
           import urllib.parse
           import urllib.request
           from datetime import datetime, timedelta, timezone
@@ -73,7 +74,8 @@ jobs:
             created_at = ended_at
 
           base = "https://api.twitch.tv/helix/clips"
-          WINDOW_DAYS = 90
+          WINDOW_DAYS = 30
+          OUTPUT_CLIPS_LIMIT = 50
           def iso_utc(dt):
             return dt.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
 
@@ -128,7 +130,9 @@ jobs:
             collect_window(window_start, window_end, clips_by_id)
             window_start = window_end
 
-          clips = sorted(clips_by_id.values(), key=lambda clip: clip.get("created_at", ""), reverse=True)
+          all_clips = list(clips_by_id.values())
+          sample_size = min(OUTPUT_CLIPS_LIMIT, len(all_clips))
+          clips = random.sample(all_clips, sample_size)
 
           out = {
             "generated_at": ended_at.isoformat().replace("+00:00", "Z"),
