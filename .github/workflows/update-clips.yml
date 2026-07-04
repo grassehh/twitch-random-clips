@@ -73,6 +73,7 @@ jobs:
             created_at = ended_at
 
           base = "https://api.twitch.tv/helix/clips"
+          WINDOW_DAYS = 90
           def iso_utc(dt):
             return dt.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
 
@@ -123,7 +124,7 @@ jobs:
           clips_by_id = {}
           window_start = created_at
           while window_start < ended_at:
-            window_end = min(window_start + timedelta(days=7), ended_at)
+            window_end = min(window_start + timedelta(days=WINDOW_DAYS), ended_at)
             collect_window(window_start, window_end, clips_by_id)
             window_start = window_end
 
