@@ -33,7 +33,7 @@ jobs:
           import os
           import urllib.parse
           import urllib.request
-          from datetime import datetime, timezone
+          from datetime import datetime, timedelta, timezone
 
           client_id = os.environ["TWITCH_CLIENT_ID"]
           client_secret = os.environ["TWITCH_CLIENT_SECRET"]
@@ -62,47 +62,72 @@ jobs:
           users_data = req_json(users_url, headers=headers)
           if not users_data.get("data"):
             raise RuntimeError("Channel not found")
-          broadcaster_id = users_data["data"][0]["id"]
+          broadcaster = users_data["data"][0]
+          broadcaster_id = broadcaster["id"]
 
           ended_at = datetime.now(timezone.utc)
+          created_at_raw = broadcaster.get("created_at")
+          if created_at_raw:
+            created_at = datetime.fromisoformat(created_at_raw.replace("Z", "+00:00"))
+          else:
+            created_at = ended_at
+
           base = "https://api.twitch.tv/helix/clips"
-          params = {
-            "broadcaster_id": broadcaster_id,
-            "first": "100",
-          }
+          def iso_utc(dt):
+            return dt.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
 
-          clips = []
-          cursor = None
-          seen_cursors = set()
-          while True:
-            if cursor and cursor in seen_cursors:
-              break
-            if cursor:
-              seen_cursors.add(cursor)
+          def collect_window(started_at, ended_at, clips_by_id):
+            cursor = None
+            seen_cursors = set()
 
-            p = dict(params)
-            if cursor:
-              p["after"] = cursor
-            url = base + "?" + urllib.parse.urlencode(p)
-            data = req_json(url, headers=headers)
+            while True:
+              if cursor and cursor in seen_cursors:
+                break
+              if cursor:
+                seen_cursors.add(cursor)
 
-            for c in data.get("data", []):
-              thumbnail_url = c.get("thumbnail_url", "")
-              video_url = ""
-              if "-preview-" in thumbnail_url:
-                video_url = thumbnail_url.split("-preview-", 1)[0] + ".mp4"
-              clips.append({
-                "id": c.get("id"),
-                "duration": c.get("duration", 20),
-                "title": c.get("title", ""),
-                "url": c.get("url", ""),
-                "thumbnail_url": thumbnail_url,
-                "video_url": video_url
-              })
+              params = {
+                "broadcaster_id": broadcaster_id,
+                "first": "100",
+                "started_at": iso_utc(started_at),
+                "ended_at": iso_utc(ended_at),
+              }
+              if cursor:
+                params["after"] = cursor
 
-            cursor = data.get("pagination", {}).get("cursor")
-            if not cursor:
-              break
+              url = base + "?" + urllib.parse.urlencode(params)
+              data = req_json(url, headers=headers)
+
+              for c in data.get("data", []):
+                thumbnail_url = c.get("thumbnail_url", "")
+                video_url = ""
+                if "-preview-" in thumbnail_url:
+                  video_url = thumbnail_url.split("-preview-", 1)[0] + ".mp4"
+                clip_id = c.get("id")
+                if not clip_id:
+                  continue
+                clips_by_id[clip_id] = {
+                  "id": clip_id,
+                  "duration": c.get("duration", 20),
+                  "title": c.get("title", ""),
+                  "url": c.get("url", ""),
+                  "thumbnail_url": thumbnail_url,
+                  "video_url": video_url,
+                  "created_at": c.get("created_at", ""),
+                }
+
+              cursor = data.get("pagination", {}).get("cursor")
+              if not cursor:
+                break
+
+          clips_by_id = {}
+          window_start = created_at
+          while window_start < ended_at:
+            window_end = min(window_start + timedelta(days=7), ended_at)
+            collect_window(window_start, window_end, clips_by_id)
+            window_start = window_end
+
+          clips = sorted(clips_by_id.values(), key=lambda clip: clip.get("created_at", ""), reverse=True)
 
           out = {
             "generated_at": ended_at.isoformat().replace("+00:00", "Z"),
