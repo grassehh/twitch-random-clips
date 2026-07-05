@@ -61,7 +61,7 @@
 <script>
     const clipEmbed = document.getElementById("clipEmbed");
     let clips = [];
-    let lastClipId = null;
+    let alreadyPlayedClipsIds = [];
     let timer = null;
 
     function parentDomain() {
@@ -72,13 +72,23 @@
         if (clips.length === 0) return null;
         if (clips.length === 1) return clips[0];
 
-        let clip = clips[Math.floor(Math.random() * clips.length)];
-        let guard = 0;
-        while (clip.id === lastClipId && guard < 10) {
-            clip = clips[Math.floor(Math.random() * clips.length)];
-            guard += 1;
+        const lastPlayedClipId = alreadyPlayedClipsIds[alreadyPlayedClipsIds.length - 1];
+        const playedClipIds = new Set(alreadyPlayedClipsIds);
+        let availableClips = clips.filter((clip) => !playedClipIds.has(clip.id));
+
+        if (availableClips.length === 0) {
+            alreadyPlayedClipsIds = [];
+            availableClips = [...clips];
         }
-        return clip;
+
+        if (availableClips.length > 1 && lastPlayedClipId) {
+            const clipsWithoutImmediateRepeat = availableClips.filter((clip) => clip.id !== lastPlayedClipId);
+            if (clipsWithoutImmediateRepeat.length > 0) {
+                availableClips = clipsWithoutImmediateRepeat;
+            }
+        }
+
+        return availableClips[Math.floor(Math.random() * availableClips.length)];
     }
 
     function scheduleNext(seconds) {
@@ -94,7 +104,7 @@
 
     function playClip(clip) {
         playClipEmbed(clip);
-        lastClipId = clip.id;
+        alreadyPlayedClipsIds.push(clip.id);
         scheduleNext(clip.duration);
     }
 
