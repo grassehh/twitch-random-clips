@@ -79,9 +79,10 @@ jobs:
           def iso_utc(dt):
             return dt.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
 
-          def collect_window(started_at, ended_at, clips_by_id):
+          def collect_window(started_at, ended_at, global_seen_ids):
             cursor = None
             seen_cursors = set()
+            window_clips_by_id = {}
 
             while True:
               if cursor and cursor in seen_cursors:
@@ -94,6 +95,7 @@ jobs:
                 "first": "100",
                 "started_at": iso_utc(started_at),
                 "ended_at": iso_utc(ended_at),
+                "is_featured": "true",
               }
               if cursor:
                 params["after"] = cursor
@@ -102,31 +104,92 @@ jobs:
               data = req_json(url, headers=headers)
 
               for c in data.get("data", []):
+                if not c.get("is_featured"):
+                  continue
                 clip_id = c.get("id")
                 if not clip_id:
                   continue
-                clips_by_id[clip_id] = {
+                if clip_id in global_seen_ids or clip_id in window_clips_by_id:
+                  continue
+                window_clips_by_id[clip_id] = {
                   "id": clip_id,
                   "duration": c.get("duration", 20),
                   "title": c.get("title", ""),
                   "url": c.get("url", ""),
                   "created_at": c.get("created_at", ""),
                 }
+                global_seen_ids.add(clip_id)
 
               cursor = data.get("pagination", {}).get("cursor")
               if not cursor:
                 break
 
-          clips_by_id = {}
+            return list(window_clips_by_id.values())
+
+          def allocate_window_quotas(window_sizes, target_total):
+            if target_total <= 0:
+              return [0] * len(window_sizes)
+
+            total_available = sum(window_sizes)
+            if total_available <= target_total:
+              return window_sizes[:]
+
+            quotas = []
+            fractions = []
+            for idx, size in enumerate(window_sizes):
+              raw_quota = (target_total * size) / total_available
+              base_quota = min(size, int(raw_quota))
+              quotas.append(base_quota)
+              fractions.append((raw_quota - base_quota, idx))
+
+            remaining = target_total - sum(quotas)
+            while remaining > 0:
+              candidates = [(frac, idx) for frac, idx in fractions if quotas[idx] < window_sizes[idx]]
+              if not candidates:
+                break
+              candidates.sort(reverse=True)
+              for _, idx in candidates:
+                if remaining == 0:
+                  break
+                if quotas[idx] >= window_sizes[idx]:
+                  continue
+                quotas[idx] += 1
+                remaining -= 1
+
+            return quotas
+
+          window_clips = []
+          global_seen_ids = set()
           window_start = created_at
           while window_start < ended_at:
             window_end = min(window_start + timedelta(days=WINDOW_DAYS), ended_at)
-            collect_window(window_start, window_end, clips_by_id)
+            window_clips.append(collect_window(window_start, window_end, global_seen_ids))
             window_start = window_end
 
-          all_clips = list(clips_by_id.values())
-          sample_size = min(OUTPUT_CLIPS_LIMIT, len(all_clips))
-          clips = random.sample(all_clips, sample_size)
+          window_sizes = [len(clips_in_window) for clips_in_window in window_clips]
+          target_total = min(OUTPUT_CLIPS_LIMIT, sum(window_sizes))
+          quotas = allocate_window_quotas(window_sizes, target_total)
+
+          clips = []
+          for idx, clips_in_window in enumerate(window_clips):
+            take_count = quotas[idx]
+            if take_count <= 0:
+              continue
+            if take_count >= len(clips_in_window):
+              clips.extend(clips_in_window)
+            else:
+              clips.extend(random.sample(clips_in_window, take_count))
+
+          if len(clips) < target_total:
+            selected_ids = {c["id"] for c in clips}
+            remaining_pool = [
+              c for clips_in_window in window_clips for c in clips_in_window if c["id"] not in selected_ids
+            ]
+            missing = target_total - len(clips)
+            if missing > 0 and remaining_pool:
+              clips.extend(random.sample(remaining_pool, min(missing, len(remaining_pool))))
+
+          random.shuffle(clips)
 
           out = {
             "generated_at": ended_at.isoformat().replace("+00:00", "Z"),
